@@ -1,4 +1,4 @@
-const CACHE_NAME = "my-pwa-local-v1";
+const CACHE_NAME = "my-pwa-local-v2";
 const APP_SHELL = "./index.html";
 
 self.addEventListener("install", event => {
