@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>验证</title>
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+            background: #000000;
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+        }
+
+        body {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .yz-underlay-layer {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+            margin: 0;
+            padding: 0;
+            background: #FFFFFF;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        .yz2-page {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            background: #000000;
+            z-index: 2;
+            transform: translateY(0);
+        }
+
+        .yz2-page.exit-up {
+            transform: translateY(100%);
+            transition: transform 0.36s cubic-bezier(.22, 1, .36, 1);
+            will-change: transform;
+        }
+
+        .front-camera-wrap {
+            position: absolute;
+            left: 50%;
+            top: 11%;
+            width: 55%;
+            height: 55%;
+            transform: translateX(-50%);
+            z-index: 1;
+            overflow: hidden;
+            background: #000000;
+        }
+
+        .front-camera-preview {
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            background: #000000;
+            transform: scaleX(-1);
+        }
+
+        .front-camera-placeholder {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            text-align: center;
+            color: rgba(255, 255, 255, 0.72);
+            font-size: 14px;
+            z-index: 2;
+        }
+
+        .yz2-overlay-image {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            object-fit: cover;
+            z-index: 5;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .processing-overlay {
+            position: fixed;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            align-items: flex-start;
+            justify-content: center;
+            background: rgba(0, 0, 0, 0.5);
+            z-index: 20;
+            pointer-events: none;
+        }
+
+        .processing-overlay.show {
+            display: flex;
+        }
+
+        .processing-content {
+            position: relative;
+            margin-top: calc(28vh + 40px);
+            width: 120px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .processing-icon-wrap {
+            position: relative;
+            width: 72px;
+            height: 72px;
+        }
+
+        .processing-icon-static,
+        .processing-icon-spin {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            width: 72px;
+            height: 72px;
+            object-fit: contain;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .processing-icon-spin {
+            animation: processingSpin 1s linear infinite;
+        }
+
+        .processing-text {
+            margin-top: 14px;
+            color: #FFFFFF;
+            font-size: 15px;
+            font-weight: 400;
+            letter-spacing: 2px;
+            text-align: center;
+            white-space: nowrap;
+        }
+
+        .return-loading-video {
+            position: fixed;
+            left: 50%;
+            top: 50%;
+            width: 140px;
+            height: 140px;
+            transform: translate(-50%, -50%);
+            object-fit: contain;
+            display: none;
+            z-index: 10;
+            pointer-events: none;
+            background: transparent;
+        }
+
+        .return-loading-video.show {
+            display: block;
+        }
+
+        @keyframes processingSpin {
+            from {
+                transform: translate(-50%, -50%) rotate(0deg);
+            }
+
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        @media (display-mode: standalone) {
+            html,
+            body {
+                width: 100%;
+                height: 100vh;
+                min-height: 100vh;
+                margin: 0;
+                overflow: hidden;
+                background: #000000;
+            }
+
+            body {
+                position: fixed;
+                inset: 0;
+            }
+
+            .yz2-page {
+                position: fixed;
+                inset: 0;
+                width: 100%;
+                height: 100vh;
+                overflow: hidden;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <iframe class="yz-underlay-layer" id="yzUnderlayLayer" src="yz.html" aria-hidden="true"></iframe>
+
+    <main class="yz2-page">
+        <div class="front-camera-wrap">
+            <video
+                class="front-camera-preview"
+                id="frontCameraPreview"
+                autoplay
+                muted
+                playsinline>
+            </video>
+
+            <div class="front-camera-placeholder" id="frontCameraPlaceholder">
+                正在打开前置摄像头…
+            </div>
+        </div>
+
+        <img class="yz2-overlay-image" src="img/sy/26.png" alt="">
+
+        <div class="processing-overlay" id="processingOverlay">
+            <div class="processing-content">
+                <div class="processing-icon-wrap">
+                    <img class="processing-icon-static" src="img/sy/29.png" alt="">
+                    <img class="processing-icon-spin" src="img/sy/28.png" alt="">
+                </div>
+
+                <div class="processing-text">正在处理</div>
+            </div>
+        </div>
+    </main>
+
+    <video
+        class="return-loading-video"
+        id="returnLoadingVideo"
+        src="img/sy/27.mp4"
+        muted
+        playsinline
+        preload="auto">
+    </video>
+
+    <script>
+        const frontCameraPreview =
+            document.getElementById("frontCameraPreview");
+
+        const frontCameraPlaceholder =
+            document.getElementById("frontCameraPlaceholder");
+
+        const processingOverlay =
+            document.getElementById("processingOverlay");
+
+        const returnLoadingVideo =
+            document.getElementById("returnLoadingVideo");
+
+        let frontCameraStream = null;
+        let processingShowTimer = null;
+        let processingExitTimer = null;
+        let yz3Timer = null;
+        let exitStarted = false;
+
+        function stopFrontCamera() {
+            if (!frontCameraStream) return;
+
+            frontCameraStream
+                .getTracks()
+                .forEach(track => track.stop());
+
+            frontCameraStream = null;
+            frontCameraPreview.srcObject = null;
+        }
+
+        async function startFrontCamera() {
+            if (
+                !navigator.mediaDevices ||
+                !navigator.mediaDevices.getUserMedia
+            ) {
+                frontCameraPlaceholder.textContent =
+                    "当前浏览器不支持摄像头访问";
+                return;
+            }
+
+            try {
+                frontCameraStream =
+                    await navigator.mediaDevices.getUserMedia({
+                        video: {
+                            facingMode: {
+                                ideal: "user"
+                            }
+                        },
+                        audio: false
+                    });
+
+                frontCameraPreview.srcObject =
+                    frontCameraStream;
+
+                await frontCameraPreview.play();
+
+                frontCameraPlaceholder.style.display =
+                    "none";
+
+            } catch (error) {
+                console.error(
+                    "前置摄像头获取失败:",
+                    error
+                );
+
+                frontCameraPlaceholder.style.display =
+                    "flex";
+
+                if (error.name === "NotAllowedError") {
+                    frontCameraPlaceholder.textContent =
+                        "请允许摄像头权限后再试";
+                } else if (error.name === "NotFoundError") {
+                    frontCameraPlaceholder.textContent =
+                        "没有找到可用前置摄像头";
+                } else if (error.name === "NotReadableError") {
+                    frontCameraPlaceholder.textContent =
+                        "摄像头当前可能被其他应用占用";
+                } else {
+                    frontCameraPlaceholder.textContent =
+                        "前置摄像头打开失败";
+                }
+            }
+        }
+
+        async function showReturnLoadingVideo() {
+            returnLoadingVideo.classList.add("show");
+            returnLoadingVideo.currentTime = 0;
+
+            try {
+                await returnLoadingVideo.play();
+            } catch (error) {
+                console.warn(
+                    "27.mp4 播放失败:",
+                    error
+                );
+            }
+        }
+
+        function slideBackToYz() {
+            if (exitStarted) return;
+            exitStarted = true;
+
+            const page =
+                document.querySelector(".yz2-page");
+
+            showReturnLoadingVideo();
+
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    page?.classList.add("exit-up");
+                });
+            });
+
+            setTimeout(() => {
+                stopFrontCamera();
+
+                const yz3Delay =
+                    1000 + Math.random() * 2000;
+
+                yz3Timer = setTimeout(() => {
+                    window.location.replace("yz3.html");
+                }, yz3Delay);
+            }, 400);
+        }
+
+        function clearTimers() {
+            if (processingShowTimer) {
+                clearTimeout(processingShowTimer);
+                processingShowTimer = null;
+            }
+
+            if (processingExitTimer) {
+                clearTimeout(processingExitTimer);
+                processingExitTimer = null;
+            }
+
+            if (yz3Timer) {
+                clearTimeout(yz3Timer);
+                yz3Timer = null;
+            }
+        }
+
+        window.addEventListener(
+            "pagehide",
+            () => {
+                if (window.top !== window.self) {
+                    return;
+                }
+
+                clearTimers();
+                stopFrontCamera();
+            }
+        );
+
+        window.addEventListener(
+            "pageshow",
+            async () => {
+                if (window.top !== window.self) {
+                    return;
+                }
+
+                document
+                    .querySelector(".yz2-page")
+                    ?.classList.remove("exit-up");
+
+                processingOverlay.classList.remove("show");
+                returnLoadingVideo.classList.remove("show");
+                exitStarted = false;
+                clearTimers();
+
+                const processingDelay =
+                    2000 + Math.random() * 2000;
+
+                processingShowTimer =
+                    setTimeout(() => {
+                        processingOverlay.classList.add("show");
+
+                        const processingVisibleTime =
+                            2000 + Math.random() * 2000;
+
+                        processingExitTimer =
+                            setTimeout(() => {
+                                slideBackToYz();
+                            }, processingVisibleTime);
+                    }, processingDelay);
+
+                await startFrontCamera();
+            }
+        );
+    </script>
+
+</body>
+
+</html>

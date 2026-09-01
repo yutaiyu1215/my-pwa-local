@@ -1,0 +1,1891 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport"
+        content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+
+    <title>我的 App</title>
+
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="支付宝">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="apple-touch-icon" href="icon.png">
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+
+            font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", sans-serif;
+
+            background: #FEFEFE;
+            color: #223464;
+        }
+
+        body {
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        .app {
+            position: relative;
+            width: 100%;
+            height: 100vh;
+            overflow: hidden;
+            transform: scale(1);
+            opacity: 1;
+            transition:
+                opacity 0.2s ease,
+                transform 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+            will-change: opacity, transform;
+        }
+
+        .app.page-transition-out {
+            opacity: 0;
+            transform: scale(0.985);
+        }
+
+        .page {
+            width: 100%;
+            height: 100%;
+            overflow-y: auto;
+            overflow-x: hidden;
+            -webkit-overflow-scrolling: touch;
+            overscroll-behavior-y: contain;
+            touch-action: pan-y;
+            min-height: 0;
+
+            padding-top: 20px;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-bottom: 0;
+
+            background: #F0F2F6;
+            display: none;
+        }
+
+        .page.active-page {
+            display: block;
+        }
+
+        #page-home {
+            position: relative;
+            background: #F0F2F6;
+            --home-top-bg-opacity: 0;
+            --home-quick-bg-opacity: 0;
+        }
+
+        .home-background-texture {
+            position: fixed;
+            top: 0;
+            left: 0;
+            transform: translateX(-5vw);
+            width: 110vw;
+            height: auto;
+            display: block;
+
+            z-index: 0;
+
+            pointer-events: none;
+
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .weather-location,
+        .home-search-box,
+        .home-search-toggle,
+        .home-quick-actions,
+        .home-service-panel {
+            z-index: 1;
+        }
+
+        .page-title {
+            margin: 0 0 10px;
+            font-size: 28px;
+            font-weight: 700;
+        }
+
+        .page-description {
+            margin: 0;
+            font-size: 15px;
+            color: #223464;
+            opacity: 0.7;
+        }
+
+        .tab-bar {
+            position: fixed;
+
+            left: 0;
+            right: 0;
+            bottom: 34px;
+
+            width: 100%;
+            height: 54px;
+
+            margin: 0;
+            padding: 0;
+
+            display: flex;
+            align-items: center;
+
+            background: #FEFEFE;
+
+            border-top: 1px solid rgba(34, 52, 100, 0.08);
+
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+
+            overflow: visible;
+            z-index: 1000;
+
+            touch-action: manipulation;
+        }
+
+        .tab-bar::after {
+            content: "";
+            position: absolute;
+            left: 0;
+            right: 0;
+            top: 100%;
+            height: 34px;
+            background: inherit;
+            pointer-events: none;
+        }
+
+        .tab-bar.life-active {
+            background: #1A1A1A;
+        }
+
+        .tab {
+            flex: 1;
+
+            height: 54px;
+
+            margin: 0;
+            padding: 0;
+
+            border: none;
+            outline: none;
+
+            background: transparent;
+
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+
+            gap: 5px;
+
+            color: #223464;
+
+            font-family: inherit;
+
+            -webkit-tap-highlight-color: transparent;
+            -webkit-user-drag: none;
+        }
+
+        .tab-icon {
+            width: 22px;
+            height: 22px;
+
+            object-fit: contain;
+
+            pointer-events: none;
+
+            -webkit-user-drag: none;
+        }
+
+        .tab-text {
+            font-size: 9px;
+
+            line-height: 2;
+
+            white-space: nowrap;
+
+            color: #223464;
+
+            font-weight: 400;
+
+            transform: translateY(2px);
+        }
+
+        .tab.active:not([data-page="home"]) .tab-text {
+            color: #408FE1;
+            font-weight: 700;
+        }
+
+        .tab[data-page="life"].active .tab-text {
+            color: #4984F7;
+        }
+
+        .tab-bar.life-active .tab:not(.active) .tab-text {
+            color: #B3B3B3;
+        }
+
+        .home-icon {
+            width: 22px;
+            height: 22px;
+
+            object-fit: contain;
+
+            pointer-events: none;
+
+            -webkit-user-drag: none;
+        }
+
+        .tab:not(.active) .home-icon {
+            width: 22px;
+            height: 22px;
+        }
+
+        .tab.active .home-icon {
+            width: 40px;
+            height: 40px;
+
+            transform: translateY(-5px);
+        }
+
+        .tab[data-page="home"].active .tab-text {
+            display: none;
+        }
+
+        .weather-location {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 20;
+            display: inline-flex;
+            flex-direction: column;
+            align-items: flex-start;
+            margin-bottom: 10px;
+            margin-top: env(safe-area-inset-top);
+            transform: translate(-7px, -23px);
+            flex-shrink: 0;
+        }
+
+        .weather-city-row {
+            display: flex;
+
+            align-items: center;
+
+            gap: 3px;
+        }
+
+        .weather-city {
+            font-size: 17px;
+
+            font-weight: 500;
+
+            line-height: 1.05;
+
+            color: #223464;
+        }
+
+        .weather-arrow {
+            font-size: 15px;
+
+            font-weight: 600;
+
+            line-height: 1;
+
+            color: #223464;
+
+            transform: translateY(-1px);
+        }
+
+        .weather-info {
+            display: flex;
+
+            align-items: center;
+
+            gap: 3px;
+
+            margin-top: 3px;
+
+            font-size: 10px;
+
+            font-weight: 400;
+
+            color: #6F7A91;
+        }
+
+        .home-search-toggle {
+            position: fixed;
+
+            top: calc(23px + env(safe-area-inset-top));
+
+            right: 15px;
+
+            width: 32px;
+            height: 32px;
+
+            padding: 0;
+
+            border: none;
+
+            background: transparent;
+
+            display: flex;
+
+            align-items: center;
+            justify-content: center;
+
+            transform: translateY(-23px);
+
+            z-index: 20;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .home-search-toggle img {
+            width: 24px;
+            height: 24px;
+
+            object-fit: contain;
+
+            pointer-events: none;
+
+            transition: transform 0.5s ease;
+        }
+
+        .home-search-toggle.active img {
+            transform: rotate(45deg);
+        }
+
+        .home-plus-menu {
+            position: fixed;
+            top: calc(45px + env(safe-area-inset-top));
+            right: 8px;
+            width: 152px;
+            height: auto;
+            opacity: 0;
+            transform: translateY(-8px) scale(0.96);
+            transform-origin: top right;
+            pointer-events: none;
+            z-index: 30;
+            transition:
+                opacity 0.22s ease,
+                transform 0.22s ease;
+        }
+
+        .home-plus-menu.open {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+            pointer-events: auto;
+        }
+
+        .home-plus-menu-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            pointer-events: none;
+            user-select: none;
+            -webkit-user-drag: none;
+        }
+
+        .home-plus-menu-hotspots {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.01s linear 0.22s;
+        }
+
+        .home-plus-menu.open .home-plus-menu-hotspots {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .home-plus-menu-hotspot {
+            position: absolute;
+            left: 0;
+            right: 0;
+            height: 25%;
+            border: none;
+            background: transparent;
+            padding: 0;
+            margin: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .home-plus-menu-hotspot:nth-child(1) {
+            top: 0;
+        }
+
+        .home-plus-menu-hotspot:nth-child(2) {
+            top: 25%;
+        }
+
+        .home-plus-menu-hotspot:nth-child(3) {
+            top: 50%;
+        }
+
+        .home-plus-menu-hotspot:nth-child(4) {
+            top: 75%;
+        }
+
+        .home-search-box {
+            position: fixed;
+
+            top: calc(23px + env(safe-area-inset-top));
+
+            left: 73px;
+            right: 53px;
+
+            height: 32px;
+
+            border-radius: 16px;
+
+            background: #FFFFFF;
+
+            display: flex;
+
+            align-items: center;
+
+            overflow: hidden;
+
+            z-index: 20;
+            transform: translateY(-23px);
+        }
+
+        .home-search-main {
+            flex: 1;
+
+            height: 100%;
+
+            display: flex;
+
+            align-items: center;
+
+            padding-left: 12px;
+        }
+
+        .home-search-keywords {
+            position: relative;
+
+            width: 100%;
+
+            height: 18px;
+
+            overflow: hidden;
+
+            pointer-events: none;
+        }
+
+        .home-search-keyword {
+            position: absolute;
+
+            left: 0;
+            top: 0;
+
+            width: 100%;
+            height: 18px;
+
+            line-height: 18px;
+
+            font-size: 16px;
+
+            font-weight: 400;
+
+            color: #2F2F2F;
+
+            white-space: nowrap;
+
+            opacity: 0;
+
+            transform: translateY(18px);
+        }
+
+        .home-search-keyword.current {
+            opacity: 1;
+
+            transform: translateY(0);
+        }
+
+        .home-search-keyword.next {
+            opacity: 0;
+
+            transform: translateY(18px);
+        }
+
+        .home-search-keyword.slide-out {
+            animation: searchKeywordOut 0.5s ease forwards;
+        }
+
+        .home-search-keyword.slide-in {
+            animation: searchKeywordIn 0.5s ease forwards;
+        }
+
+        @keyframes searchKeywordOut {
+            from {
+                opacity: 1;
+                transform: translateY(0);
+            }
+
+            to {
+                opacity: 0;
+                transform: translateY(-18px);
+            }
+        }
+
+        @keyframes searchKeywordIn {
+            from {
+                opacity: 0;
+                transform: translateY(18px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .home-search-input {
+            flex: 1;
+
+            width: 100%;
+
+            border: none;
+            outline: none;
+
+            background: transparent;
+
+            font-family: inherit;
+
+            font-size: 15px;
+
+            color: #2F2F2F;
+
+            min-width: 0;
+
+            -webkit-appearance: none;
+            appearance: none;
+        }
+
+        .home-search-input::-webkit-search-cancel-button {
+            display: none;
+        }
+
+        .home-search-divider {
+            width: 1px;
+            height: 18px;
+
+            background: #2FA7FF;
+
+            flex-shrink: 0;
+        }
+
+        .home-search-button {
+            height: 100%;
+
+            padding: 0 14px;
+
+            border: none;
+
+            background: transparent;
+
+            color: #2FA7FF;
+
+            font-family: inherit;
+
+            font-size: 14px;
+            font-weight: 700;
+
+            flex-shrink: 0;
+
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .home-add-space {
+            width: 44px;
+            height: 32px;
+
+            flex-shrink: 0;
+        }
+
+        .home-quick-actions {
+            position: absolute;
+            top: calc(45px + env(safe-area-inset-top));
+            left: 8px;
+            right: 8px;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            align-items: start;
+            z-index: 1;
+        }
+
+        .home-quick-action {
+            border: none;
+
+            background: transparent;
+
+            padding: 0;
+            margin: 0;
+
+            display: flex;
+
+            flex-direction: column;
+
+            align-items: center;
+
+            justify-content: flex-start;
+
+            gap: 4px;
+
+            font-family: inherit;
+
+            color: #2F2F2F;
+
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        .home-quick-action img {
+            width: 48px;
+            height: 48px;
+
+            display: block;
+
+            object-fit: cover;
+
+            pointer-events: none;
+
+            -webkit-user-drag: none;
+
+            border-radius: 12px;
+            -webkit-border-radius: 12px;
+
+            overflow: hidden;
+
+            -webkit-mask-image:
+                -webkit-radial-gradient(white, black);
+        }
+
+        .home-quick-action span {
+            font-size: 14px;
+
+            line-height: 1.15;
+
+            font-weight: 400;
+
+            white-space: nowrap;
+        }
+
+        .home-service-panel {
+            position: absolute;
+            top: calc(128px + env(safe-area-inset-top));
+            left: 0;
+            right: 0;
+            height: 800px;
+            background: #F4F5F7;
+            border-radius: 24px;
+        }
+
+        .home-service-image {
+            width: 100%;
+            height: auto;
+            display: block;
+            transform: translateY(5%);
+            border-radius: 24px;
+            object-fit: cover;
+            -webkit-user-drag: none;
+            user-select: none;
+        }
+
+        .home-service-image-second {
+            margin-top: 12px;
+        }
+
+        /* layout-neutral wrappers + two independent blue fade backgrounds */
+        .home-top-layer,
+        .home-content-layer {
+            display: contents;
+        }
+
+        .home-top-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: calc(45px + env(safe-area-inset-top));
+            background: #59A7F9;
+            opacity: var(--home-top-bg-opacity, 0);
+            transition: opacity 0.08s linear;
+            pointer-events: none;
+            z-index: 18;
+        }
+
+        .home-quick-background {
+            position: absolute;
+            top: calc(45px + env(safe-area-inset-top));
+            left: -20px;
+            right: -20px;
+            height: 110px;
+            background: #59A7F9;
+            opacity: var(--home-quick-bg-opacity, 0);
+            transition: opacity 0.08s linear;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        /* standalone PWA viewport workaround */
+
+        @media (display-mode: standalone) {
+
+            html,
+            body {
+                width: 100%;
+                height: 100vh;
+
+                min-height: 100vh;
+
+                margin: 0;
+
+                overflow: hidden;
+            }
+
+            body {
+                position: fixed;
+
+                inset: 0;
+            }
+
+            .app {
+                position: fixed;
+
+                inset: 0;
+
+                width: 100%;
+                height: 100vh;
+
+                overflow: hidden;
+            }
+
+            .page {
+                width: 100%;
+                height: 100%;
+            }
+
+            .tab-bar {
+                position: fixed;
+
+                left: 0;
+                right: 0;
+
+                bottom: 34px;
+
+                width: 100%;
+                height: 54px;
+
+                margin: 0;
+                padding: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+    <div class="app">
+
+        <main class="page active-page" id="page-home">
+
+            <img class="home-background-texture" src="img/sy/11.png" alt="">
+
+            <div class="home-top-layer">
+                <div class="home-top-background"></div>
+                <div class="weather-location">
+                    <div class="weather-city-row">
+                        <span class="weather-city" id="weatherCity">
+                            定位中
+                        </span>
+                        <span class="weather-arrow">
+                            ⌄
+                        </span>
+                    </div>
+                    <div class="weather-info">
+                        <span id="weatherText">
+                            --
+                        </span>
+                        <span id="weatherTemp">
+                            --°C
+                        </span>
+                    </div>
+                </div>
+                <div class="home-search-box">
+                    <div class="home-search-main">
+                        <div class="home-search-keywords" id="homeSearchKeywords" aria-label="搜索关键词">
+                            <span class="home-search-keyword current">
+                                身份证
+                            </span>
+                            <span class="home-search-keyword next">
+                                高德打车
+                            </span>
+                        </div>
+                    </div>
+                    <div class="home-search-divider"></div>
+                    <button class="home-search-button" type="button">
+                        搜索
+                    </button>
+                </div>
+                <button class="home-search-toggle" id="homeSearchToggle" type="button" aria-label="展开">
+                    <img src="img/sy/6.png" alt="">
+                </button>
+                <div class="home-plus-menu" id="homePlusMenu" aria-hidden="true">
+                    <img class="home-plus-menu-image" src="img/sy/14.png" alt="">
+                    <div class="home-plus-menu-hotspots">
+                        <button class="home-plus-menu-hotspot" id="homePlusMenuFirst" type="button"
+                            aria-label="扫一扫"></button>
+                        <button class="home-plus-menu-hotspot" type="button" aria-label="收款"></button>
+                        <button class="home-plus-menu-hotspot" type="button" aria-label="添加朋友"></button>
+                        <button class="home-plus-menu-hotspot" type="button" aria-label="历史记录"></button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="home-add-space"></div>
+
+            <div class="home-content-layer">
+                <div class="home-quick-background"></div>
+                <div class="home-quick-actions">
+                    <button class="home-quick-action" type="button">
+                        <img src="img/sy/7.png" alt="">
+                        <span>
+                            扫一扫
+                        </span>
+                    </button>
+                    <button class="home-quick-action" type="button">
+                        <img src="img/sy/8.png" alt="">
+                        <span>
+                            收付款
+                        </span>
+                    </button>
+                    <button class="home-quick-action" type="button">
+                        <img src="img/sy/9.png" alt="">
+                        <span>
+                            出行
+                        </span>
+                    </button>
+                    <button class="home-quick-action" type="button">
+                        <img src="img/sy/10.png" alt="">
+                        <span>
+                            卡包
+                        </span>
+                    </button>
+                </div>
+                <div class="home-service-panel">
+                    <img class="home-service-image" src="img/sy/12.jpg" alt="">
+                    <img class="home-service-image home-service-image-second" src="img/sy/13.jpg" alt="">
+                </div>
+            </div>
+
+        </main>
+
+        <main class="page" id="page-finance">
+
+            <h1 class="page-title">
+                理财
+            </h1>
+
+            <p class="page-description">
+                这里是理财页面。
+            </p>
+
+        </main>
+
+        <main class="page" id="page-life">
+
+            <h1 class="page-title">
+                生活
+            </h1>
+
+            <p class="page-description">
+                这里是生活页面。
+            </p>
+
+        </main>
+
+        <main class="page" id="page-message">
+
+            <h1 class="page-title">
+                消息
+            </h1>
+
+            <p class="page-description">
+                这里是消息页面。
+            </p>
+
+        </main>
+
+        <main class="page" id="page-profile">
+
+            <h1 class="page-title">
+                我的
+            </h1>
+
+            <p class="page-description">
+                这里是个人中心。
+            </p>
+
+        </main>
+
+        <nav class="tab-bar">
+
+            <button class="tab active" data-page="home" onclick="switchPage('home')">
+
+                <img class="home-icon" src="img/sy/1-1.png" alt="">
+
+                <span class="tab-text">
+                    首页
+                </span>
+
+            </button>
+
+            <button class="tab" data-page="finance" onclick="switchPage('finance')">
+
+                <img class="tab-icon" src="img/sy/2-1.png" alt="">
+
+                <span class="tab-text">
+                    理财
+                </span>
+
+            </button>
+
+            <button class="tab" data-page="life" onclick="switchPage('life')">
+
+                <img class="tab-icon" src="img/sy/3-1.png" alt="">
+
+                <span class="tab-text">
+                    生活
+                </span>
+
+            </button>
+
+            <button class="tab" data-page="message" onclick="switchPage('message')">
+
+                <img class="tab-icon" src="img/sy/4-1.png" alt="">
+
+                <span class="tab-text">
+                    消息
+                </span>
+
+            </button>
+
+            <button class="tab" data-page="profile" onclick="switchPage('profile')">
+
+                <img class="tab-icon" src="img/sy/5-1.png" alt="">
+
+                <span class="tab-text">
+                    我的
+                </span>
+
+            </button>
+
+        </nav>
+
+    </div>
+
+    <script>
+
+
+        if ("serviceWorker" in navigator) {
+            window.addEventListener("load", async () => {
+                try {
+                    const registration =
+                        await navigator.serviceWorker.register(
+                            "./sw.js",
+                            {
+                                scope: "./"
+                            }
+                        );
+
+                    console.log(
+                        "Service Worker 注册成功",
+                        registration.scope
+                    );
+
+                    await navigator.serviceWorker.ready;
+
+                    console.log(
+                        "Service Worker 已经 Ready"
+                    );
+                } catch (error) {
+                    console.error(
+                        "Service Worker 注册失败",
+                        error
+                    );
+
+                    alert(
+                        "SW注册失败：\n" +
+                        error.message
+                    );
+                }
+            });
+        }
+
+
+        const imageMap = {
+            home: {
+                active: "img/sy/1-1.png",
+                inactive: "img/sy/1-2.png"
+            },
+
+            finance: {
+                active: "img/sy/2-2.png",
+                inactive: "img/sy/2-1.png"
+            },
+
+            life: {
+                active: "img/sy/3-2.png",
+                inactive: "img/sy/3-1.png"
+            },
+
+            message: {
+                active: "img/sy/4-2.png",
+                inactive: "img/sy/4-1.png"
+            },
+
+            profile: {
+                active: "img/sy/5-2.png",
+                inactive: "img/sy/5-1.png"
+            }
+        };
+
+        function switchPage(pageName) {
+
+            if (
+                typeof closeHomePlusMenu === "function"
+            ) {
+                closeHomePlusMenu();
+            }
+
+            const targetPage =
+                document.getElementById(
+                    `page-${pageName}`
+                );
+
+            if (!targetPage) return;
+
+            document
+                .querySelectorAll(".page")
+                .forEach(page => {
+
+                    page.classList.toggle(
+                        "active-page",
+                        page === targetPage
+                    );
+
+                });
+
+            const tabs =
+                document.querySelectorAll(".tab");
+
+            const tabBar =
+                document.querySelector(".tab-bar");
+
+            tabBar.classList.toggle(
+                "life-active",
+                pageName === "life"
+            );
+
+            tabs.forEach(
+                (tab, index) => {
+
+                    const name =
+                        tab.dataset.page;
+
+                    const image =
+                        tab.querySelector("img");
+
+                    tab.classList.toggle(
+                        "active",
+                        name === pageName
+                    );
+
+                    if (
+                        pageName === "life" &&
+                        name !== "life"
+                    ) {
+
+                        image.src =
+                            `img/sy/${index + 1}-3.png`;
+
+                        return;
+                    }
+
+                    image.src =
+                        name === pageName
+                            ? imageMap[name].active
+                            : imageMap[name].inactive;
+                }
+            );
+        }
+
+        switchPage("home");
+
+        const weatherCodeMap = {
+            0: "晴",
+            1: "晴",
+            2: "多云",
+            3: "阴",
+
+            45: "雾",
+            48: "雾",
+
+            51: "小雨",
+            53: "小雨",
+            55: "小雨",
+
+            56: "冻雨",
+            57: "冻雨",
+
+            61: "小雨",
+            63: "中雨",
+            65: "大雨",
+
+            66: "冻雨",
+            67: "冻雨",
+
+            71: "小雪",
+            73: "中雪",
+            75: "大雪",
+            77: "雪",
+
+            80: "阵雨",
+            81: "阵雨",
+            82: "强阵雨",
+
+            85: "阵雪",
+            86: "强阵雪",
+
+            95: "雷雨",
+            96: "雷雨",
+            99: "强雷雨"
+        };
+
+        function cleanCityName(city) {
+
+            if (!city) return "";
+
+            return city
+                .replace(/特别行政区$/, "")
+                .replace(/自治州$/, "")
+                .replace(/地区$/, "")
+                .replace(/市$/, "")
+                .trim();
+        }
+
+        function normalizeSimplifiedCityName(city) {
+
+            if (!city) return "";
+
+            const replacements = {
+                "大連": "大连",
+                "瀋陽": "沈阳",
+                "臺北": "台北",
+                "臺中": "台中",
+                "臺南": "台南",
+                "臺東": "台东",
+                "高雄": "高雄",
+                "廣州": "广州",
+                "深圳": "深圳",
+                "廈門": "厦门",
+                "杭州": "杭州",
+                "蘇州": "苏州",
+                "南京": "南京",
+                "濟南": "济南",
+                "青島": "青岛",
+                "鄭州": "郑州",
+                "武漢": "武汉",
+                "長沙": "长沙",
+                "重慶": "重庆",
+                "成都": "成都",
+                "西安": "西安",
+                "哈爾濱": "哈尔滨",
+                "長春": "长春",
+                "烏魯木齊": "乌鲁木齐"
+            };
+
+            return replacements[city] || city;
+        }
+
+        function getCityNameFromReverseGeocode(data) {
+
+            if (!data) return "";
+
+            const directCandidates = [
+                data.city,
+                data.cityName,
+                data.municipality
+            ];
+
+            const directCity = directCandidates.find(value => {
+                const name = String(value || "").trim();
+
+                return name &&
+                    !name.endsWith("区") &&
+                    !name.endsWith("县") &&
+                    !name.endsWith("镇") &&
+                    !name.endsWith("乡") &&
+                    !name.endsWith("街道");
+            });
+
+            if (directCity) {
+                return directCity;
+            }
+
+            const administrative =
+                data.localityInfo &&
+                    Array.isArray(data.localityInfo.administrative)
+                    ? data.localityInfo.administrative
+                    : [];
+
+            const cityLevel = administrative.find(item => {
+
+                const name =
+                    String(item.name || "").trim();
+
+                return name.endsWith("市");
+            }) || administrative.find(item => {
+
+                const name =
+                    String(item.name || "").trim();
+
+                const description =
+                    String(item.description || "").toLowerCase();
+
+                return (
+                    description.includes("city") ||
+                    description.includes("municipality") ||
+                    description.includes("prefecture-level city")
+                ) &&
+                    !name.endsWith("区") &&
+                    !name.endsWith("县") &&
+                    !name.endsWith("镇") &&
+                    !name.endsWith("乡") &&
+                    !name.endsWith("街道");
+            });
+
+            if (cityLevel && cityLevel.name) {
+                return cityLevel.name;
+            }
+
+            const locality =
+                String(data.locality || "").trim();
+
+            if (
+                locality &&
+                !locality.endsWith("区") &&
+                !locality.endsWith("县") &&
+                !locality.endsWith("镇") &&
+                !locality.endsWith("乡") &&
+                !locality.endsWith("街道")
+            ) {
+                return locality;
+            }
+
+            return "";
+        }
+
+        const AMAP_WEB_KEY = "9d142f3db351617ee5cb8294bcbfbb3f";
+        const TENCENT_MAP_KEY = "请替换为你的腾讯位置服务Key";
+
+        async function loadCity(
+            latitude,
+            longitude
+        ) {
+
+            const weatherCity =
+                document.getElementById(
+                    "weatherCity"
+                );
+
+            weatherCity.textContent = "定位中";
+
+            let city = "";
+
+            if (
+                AMAP_WEB_KEY &&
+                !AMAP_WEB_KEY.includes("请替换")
+            ) {
+
+                try {
+
+                    const amapUrl =
+                        `https://restapi.amap.com/v3/geocode/regeo` +
+                        `?key=${encodeURIComponent(AMAP_WEB_KEY)}` +
+                        `&location=${encodeURIComponent(longitude + "," + latitude)}` +
+                        `&extensions=base` +
+                        `&radius=1000` +
+                        `&output=JSON`;
+
+                    const response =
+                        await fetch(amapUrl, {
+                            cache: "no-store"
+                        });
+
+                    if (response.ok) {
+
+                        const data =
+                            await response.json();
+
+                        if (
+                            data &&
+                            data.status === "1" &&
+                            data.regeocode &&
+                            data.regeocode.addressComponent
+                        ) {
+
+                            const component =
+                                data.regeocode.addressComponent;
+
+                            if (Array.isArray(component.city)) {
+                                city = component.city[0] || "";
+                            } else {
+                                city = component.city || "";
+                            }
+
+                            if (!city) {
+                                city = component.province || "";
+                            }
+                        }
+                    }
+
+                } catch (error) {
+
+                    console.warn(
+                        "高德逆地理编码失败:",
+                        error
+                    );
+                }
+            }
+
+            if (
+                !city &&
+                TENCENT_MAP_KEY &&
+                !TENCENT_MAP_KEY.includes("请替换")
+            ) {
+
+                try {
+
+                    const callbackName =
+                        `qqMapCallback_${Date.now()}`;
+
+                    city = await new Promise((resolve, reject) => {
+
+                        const script =
+                            document.createElement("script");
+
+                        const timer =
+                            setTimeout(() => {
+                                cleanup();
+                                reject(new Error("腾讯位置服务超时"));
+                            }, 10000);
+
+                        function cleanup() {
+                            clearTimeout(timer);
+                            delete window[callbackName];
+                            script.remove();
+                        }
+
+                        window[callbackName] = data => {
+
+                            cleanup();
+
+                            if (
+                                data &&
+                                data.status === 0 &&
+                                data.result &&
+                                data.result.address_component
+                            ) {
+
+                                const component =
+                                    data.result.address_component;
+
+                                resolve(
+                                    component.city ||
+                                    component.province ||
+                                    ""
+                                );
+
+                                return;
+                            }
+
+                            reject(
+                                new Error(
+                                    data && data.message
+                                        ? data.message
+                                        : "腾讯位置服务返回异常"
+                                )
+                            );
+                        };
+
+                        script.onerror = () => {
+                            cleanup();
+                            reject(new Error("腾讯位置服务脚本加载失败"));
+                        };
+
+                        script.src =
+                            `https://apis.map.qq.com/ws/geocoder/v1/` +
+                            `?location=${encodeURIComponent(latitude + "," + longitude)}` +
+                            `&key=${encodeURIComponent(TENCENT_MAP_KEY)}` +
+                            `&get_poi=0` +
+                            `&output=jsonp` +
+                            `&callback=${encodeURIComponent(callbackName)}`;
+
+                        document.head.appendChild(script);
+                    });
+
+                } catch (error) {
+
+                    console.warn(
+                        "腾讯位置服务逆地理编码失败:",
+                        error
+                    );
+                }
+            }
+
+            const cleanedCity =
+                cleanCityName(city);
+
+            weatherCity.textContent =
+                normalizeSimplifiedCityName(
+                    cleanedCity
+                ) ||
+                "定位失败";
+        }
+
+        async function loadWeather(
+            latitude,
+            longitude
+        ) {
+
+            const weatherText =
+                document.getElementById(
+                    "weatherText"
+                );
+
+            const weatherTemp =
+                document.getElementById(
+                    "weatherTemp"
+                );
+
+            try {
+
+                const url =
+                    `https://api.open-meteo.com/v1/forecast` +
+                    `?latitude=${encodeURIComponent(latitude)}` +
+                    `&longitude=${encodeURIComponent(longitude)}` +
+                    `&current=temperature_2m,weather_code` +
+                    `&timezone=auto`;
+
+                const response =
+                    await fetch(
+                        url,
+                        {
+                            cache: "no-store"
+                        }
+                    );
+
+                if (!response.ok) {
+                    throw new Error(
+                        response.status
+                    );
+                }
+
+                const data =
+                    await response.json();
+
+                const temperature =
+                    data.current.temperature_2m;
+
+                const code =
+                    data.current.weather_code;
+
+                weatherText.textContent =
+                    weatherCodeMap[code] ||
+                    "未知";
+
+                weatherTemp.textContent =
+                    `${Math.round(temperature)}°C`;
+
+            } catch (error) {
+
+                console.error(
+                    "天气获取失败:",
+                    error
+                );
+
+                weatherText.textContent =
+                    "天气获取失败";
+
+                weatherTemp.textContent =
+                    "";
+            }
+        }
+
+        function requestLocation() {
+
+            const weatherCity =
+                document.getElementById(
+                    "weatherCity"
+                );
+
+            const weatherText =
+                document.getElementById(
+                    "weatherText"
+                );
+
+            const weatherTemp =
+                document.getElementById(
+                    "weatherTemp"
+                );
+
+            if (!navigator.geolocation) {
+
+                weatherCity.textContent =
+                    "无法定位";
+
+                weatherText.textContent =
+                    "";
+
+                weatherTemp.textContent =
+                    "";
+
+                return;
+            }
+
+            navigator.geolocation
+                .getCurrentPosition(
+
+                    position => {
+
+                        const latitude =
+                            position.coords.latitude;
+
+                        const longitude =
+                            position.coords.longitude;
+
+                        loadCity(
+                            latitude,
+                            longitude
+                        );
+
+                        loadWeather(
+                            latitude,
+                            longitude
+                        );
+                    },
+
+                    error => {
+
+                        console.error(
+                            "定位失败:",
+                            error
+                        );
+
+                        weatherCity.textContent =
+                            "定位失败";
+
+                        if (error.code === 1) {
+
+                            weatherText.textContent =
+                                "请允许位置权限";
+
+                        } else if (
+                            error.code === 2
+                        ) {
+
+                            weatherText.textContent =
+                                "位置不可用";
+
+                        } else if (
+                            error.code === 3
+                        ) {
+
+                            weatherText.textContent =
+                                "定位超时";
+
+                        } else {
+
+                            weatherText.textContent =
+                                "无法获取位置";
+                        }
+
+                        weatherTemp.textContent =
+                            "";
+                    },
+
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 20000,
+                        maximumAge: 60000
+                    }
+                );
+        }
+
+        const searchKeywords = [
+            "身份证",
+            "高德打车",
+            "滴滴",
+            "芝麻信用",
+            "电子身份证"
+        ];
+
+        const homeSearchKeywords =
+            document.getElementById(
+                "homeSearchKeywords"
+            );
+
+        if (homeSearchKeywords) {
+
+            let currentKeywordIndex = 0;
+
+            setInterval(() => {
+
+                const current =
+                    homeSearchKeywords
+                        .querySelector(
+                            ".current"
+                        );
+
+                const next =
+                    homeSearchKeywords
+                        .querySelector(
+                            ".next"
+                        );
+
+                const nextKeywordIndex =
+                    (
+                        currentKeywordIndex + 1
+                    ) %
+                    searchKeywords.length;
+
+                next.textContent =
+                    searchKeywords[
+                    nextKeywordIndex
+                    ];
+
+                current.classList.remove(
+                    "current"
+                );
+
+                next.classList.remove(
+                    "next"
+                );
+
+                current.classList.add(
+                    "slide-out"
+                );
+
+                next.classList.add(
+                    "slide-in"
+                );
+
+                setTimeout(() => {
+
+                    current.className =
+                        "home-search-keyword next";
+
+                    next.className =
+                        "home-search-keyword current";
+
+                    currentKeywordIndex =
+                        nextKeywordIndex;
+
+                }, 500);
+
+            }, 5000);
+        }
+
+        const homeSearchToggle =
+            document.getElementById(
+                "homeSearchToggle"
+            );
+
+        const homePlusMenu =
+            document.getElementById(
+                "homePlusMenu"
+            );
+
+        function closeHomePlusMenu() {
+            const toggle =
+                document.getElementById(
+                    "homeSearchToggle"
+                );
+
+            const menu =
+                document.getElementById(
+                    "homePlusMenu"
+                );
+
+            if (!toggle || !menu) return;
+
+            menu.classList.remove("open");
+            toggle.classList.remove("active");
+            menu.setAttribute(
+                "aria-hidden",
+                "true"
+            );
+        }
+
+        if (
+            homeSearchToggle &&
+            homePlusMenu
+        ) {
+
+            homeSearchToggle
+                .addEventListener(
+                    "click",
+                    () => {
+
+                        const isOpen =
+                            homePlusMenu
+                                .classList
+                                .toggle("open");
+
+                        homeSearchToggle
+                            .classList
+                            .toggle(
+                                "active",
+                                isOpen
+                            );
+
+                        homePlusMenu
+                            .setAttribute(
+                                "aria-hidden",
+                                isOpen
+                                    ? "false"
+                                    : "true"
+                            );
+                    }
+                );
+
+            document.addEventListener(
+                "click",
+                event => {
+                    if (
+                        !homePlusMenu ||
+                        !homeSearchToggle ||
+                        !homePlusMenu.classList.contains("open")
+                    ) return;
+
+                    const target = event.target;
+
+                    if (
+                        homePlusMenu.contains(target) ||
+                        homeSearchToggle.contains(target)
+                    ) return;
+
+                    closeHomePlusMenu();
+                },
+                true
+            );
+        }
+
+        const homePlusMenuFirst =
+            document.getElementById(
+                "homePlusMenuFirst"
+            );
+
+        if (homePlusMenuFirst) {
+            homePlusMenuFirst.addEventListener(
+                "click",
+                () => {
+                    closeHomePlusMenu();
+
+                    const app =
+                        document.querySelector(".app");
+
+                    if (app) {
+                        app.classList.add(
+                            "page-transition-out"
+                        );
+                    }
+
+                    setTimeout(() => {
+                        window.location.href =
+                            "sys.html";
+                    }, 200);
+                }
+            );
+        }
+
+        window.addEventListener(
+            "pageshow",
+            () => {
+                const app =
+                    document.querySelector(".app");
+
+                if (!app) return;
+
+                app.classList.remove(
+                    "page-transition-out"
+                );
+
+                closeHomePlusMenu();
+            }
+        );
+
+        const homePage =
+            document.getElementById("page-home");
+
+        if (homePage) {
+
+            const updateHomeTopBackground = () => {
+                const scrollY = homePage.scrollTop;
+
+                const topProgress = Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        scrollY / 35
+                    )
+                );
+
+                const quickProgress = Math.max(
+                    0,
+                    Math.min(
+                        1,
+                        scrollY / 60
+                    )
+                );
+
+                homePage.style.setProperty(
+                    "--home-top-bg-opacity",
+                    topProgress.toString()
+                );
+
+                homePage.style.setProperty(
+                    "--home-quick-bg-opacity",
+                    quickProgress.toString()
+                );
+            };
+
+            homePage.addEventListener(
+                "scroll",
+                updateHomeTopBackground,
+                { passive: true }
+            );
+
+            updateHomeTopBackground();
+        }
+
+        requestLocation();
+
+    </script>
+
+</body>
+
+</html>
